@@ -612,12 +612,6 @@ function SuccessScreen({ order, onNewOrder }) {
       
       <h1 style={{ color: '#111', margin: '0 0 10px 0', fontSize: '32px' }}>Order Confirmed</h1>
       <p style={{ color: '#555', fontSize: '16px', margin: '0 0 30px 0' }}>Thank you! Your catering request has been successfully processed and securely saved.</p>
-      
-       <div style={{ background: '#f8faff', border: '1px solid #cce0ff', padding: '25px', borderRadius: '8px', margin: '0 0 30px 0' }}>
-            <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px' }}>Order Reference ID</p>
-            <p style={{ margin: '0', fontSize: '28px', fontWeight: 'bold', color: '#0055aa' }}>{order.order_form_id || order.order_number}</p>
-       </div>
-
       <p style={{ color: '#777', fontSize: '14px', marginBottom: '30px' }}>A confirmation email has been dispatched to your inbox and the Cravings Cafe team.</p>
 
       <button onClick={onNewOrder} style={{ padding: '15px 30px', background: '#111', color: '#fff', border: 'none', cursor: 'pointer', fontSize: '14px', fontWeight: 'bold', borderRadius: '6px', letterSpacing: '1px', width: '100%' }}>START NEW ORDER</button>
