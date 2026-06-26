@@ -7,12 +7,23 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabaseAdminKey = import.meta.env.VITE_SUPABASE_ADMIN_KEY; 
 const resendApiKey = import.meta.env.VITE_RESEND_API_KEY;
-
 let supabase = null;
 let supabaseAdmin = null;
 
 // ==========================================
-// STATIC MENU DATA
+// UTILITIES
+// ==========================================
+const TIME_SLOTS = ['6:00 AM', '6:30 AM', '7:00 AM', '7:30 AM', '8:00 AM', '8:30 AM', '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM', '1:00 PM', '1:30 PM', '2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM'];
+
+const fmt = (amount) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(amount || 0);
+
+const formatDate = (dateString) => {
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString('en-AU', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+};
+
+// ==========================================
+// STATIC MENU DATA (Smart Fallback)
 // ==========================================
 const STATIC_CATEGORIES = [
   { id: 'c1', name: 'Sweet', display_order: 1 },
@@ -49,15 +60,9 @@ const STATIC_ITEMS = [
   { id: 'l12', category_id: 'c3', item_name: 'BIRYANI', description: 'Aromatic rice dish with your choice of protein', regular_price: 59.00, large_price: 119.00, regular_pieces: '—', large_pieces: '—' },
 ];
 
-const TIME_SLOTS = ['6:00 AM', '6:30 AM', '7:00 AM', '7:30 AM', '8:00 AM', '8:30 AM', '9:00 AM', '9:30 AM', '10:00 AM', '10:30 AM', '11:00 AM', '11:30 AM', '12:00 PM', '12:30 PM', '1:00 PM', '1:30 PM', '2:00 PM', '2:30 PM', '3:00 PM', '3:30 PM', '4:00 PM'];
-
-const fmt = (amount) => new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(amount || 0);
-
-const formatDate = (dateString) => {
-  if (!dateString) return '';
-  return new Date(dateString).toLocaleDateString('en-AU', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
-};
-
+// ==========================================
+// STYLES
+// ==========================================
 const EXACT_CSS = `
   @import url('https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+JP:wght@400;700;900&display=swap');
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -126,11 +131,11 @@ const EXACT_CSS = `
   .inline-row input[type="text"] { flex: 1; border: none; border-bottom: 1px solid #999; height: 5mm; font-size: 8pt; font-family: Arial, Helvetica, sans-serif; background: transparent; outline: none; min-width: 0; }
   .radio-row { display: flex; gap: 4mm; align-items: center; margin-bottom: 1.5mm; }
   .radio-row label { font-size: 7pt; font-family: Arial, Helvetica, sans-serif; display: flex; align-items: center; gap: 1mm; cursor: pointer; }
-  .terms { margin-top: 4mm; font-size: 5.5pt; color: #555; font-family: Arial, Helvetica, sans-serif; border-top: 1px solid #ccc; padding-top: 2mm; line-height: 1.45; }
+  .terms { margin-top: 4mm; margin-bottom: 2mm; font-size: 5.5pt; color: #555; font-family: Arial, Helvetica, sans-serif; border-top: 1px solid #ccc; padding-top: 2mm; line-height: 1.45; }
   
   /* Additional UI styles for React integration */
-  .action-bar { width: 210mm; margin: 0 auto 5mm; display: flex; gap: 10px; }
-  .action-btn { flex: 1; padding: 3mm 0; border: none; font-size: 10pt; font-weight: bold; font-family: Arial, Helvetica, sans-serif; letter-spacing: 1px; cursor: pointer; text-align: center; border-radius: 4px; color: #fff; }
+  .action-bar { width: 100%; margin: 6mm 0 0 0; display: flex; gap: 4mm; }
+  .action-btn { flex: 1; padding: 3mm 0; border: none; font-size: 11pt; font-weight: bold; font-family: Arial, Helvetica, sans-serif; letter-spacing: 1px; cursor: pointer; text-align: center; border-radius: 4px; color: #fff; }
   .btn-print { background: #222; } .btn-print:hover { background: #000; }
   .btn-submit { background: #d97706; } .btn-submit:hover { background: #b45309; }
   
@@ -154,6 +159,9 @@ const EXACT_CSS = `
   }
 `;
 
+// ==========================================
+// MAIN APP COMPONENT
+// ==========================================
 export default function App() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [view, setView] = useState('form');
@@ -181,23 +189,11 @@ export default function App() {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', backgroundColor: '#e8e8e8', fontFamily: 'Arial, sans-serif' }}>
         <style>{`
-          .minimal-spinner {
-            width: 40px;
-            height: 40px;
-            border: 2px solid rgba(0, 0, 0, 0.1);
-            border-left-color: #111;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-bottom: 20px;
-          }
-          @keyframes spin { 
-            100% { transform: rotate(360deg); } 
-          }
+          .minimal-spinner { width: 40px; height: 40px; border: 2px solid rgba(0, 0, 0, 0.1); border-left-color: #111; border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 20px; }
+          @keyframes spin { 100% { transform: rotate(360deg); } }
         `}</style>
         <div className="minimal-spinner"></div>
-        <div style={{ color: '#111', fontSize: '13px', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 'bold' }}>
-          Loading System...
-        </div>
+        <div style={{ color: '#111', fontSize: '13px', letterSpacing: '1.5px', textTransform: 'uppercase', fontWeight: 'bold' }}>Loading System...</div>
       </div>
     );
   }
@@ -212,10 +208,14 @@ export default function App() {
   );
 }
 
+// ==========================================
+// ORDER FORM COMPONENT
+// ==========================================
 function ExactOrderForm({ onSuccess, onAdmin }) {
-  const [menu, setMenu] = useState({ categories: STATIC_CATEGORIES, items: STATIC_ITEMS });
+  const [menu, setMenu] = useState({ categories: [], items: [] });
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [menuLoading, setMenuLoading] = useState(true);
 
   const generateOrderFormId = () => {
     const date = new Date();
@@ -233,23 +233,37 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
   const [cart, setCart] = useState({}); 
   const [meta, setMeta] = useState({ salads: {}, toppings: '', dietary: '', invoice: 'no' });
 
+  // PULL DYNAMIC MENU DATA FROM SUPABASE (WITH SMART STATIC FALLBACK)
   useEffect(() => {
-    async function load() {
+    async function loadDynamicMenu() {
       try {
-        const { data: cats } = await supabase.from('menu_categories').select('*').eq('is_active', true).order('display_order');
-        const { data: items } = await supabase.from('menu_items').select('*').eq('is_active', true).order('display_order');
-        if (cats && cats.length > 0 && items && items.length > 0) {
+        setMenuLoading(true);
+        const { data: cats, error: catErr } = await supabase.from('menu_categories').select('*').eq('is_active', true).order('display_order');
+        const { data: items, error: itemErr } = await supabase.from('menu_items').select('*').eq('is_active', true).order('display_order');
+
+        if (catErr || itemErr || !cats || cats.length === 0 || !items || items.length === 0) {
+          console.log("Database empty or unavailable. Falling back to static data.");
+          setMenu({ categories: STATIC_CATEGORIES, items: STATIC_ITEMS });
+        } else {
+          // Merge dynamic data with static pieces count (so layout pieces column remains intact)
           const mergedItems = items.map(dbItem => {
              const staticMatch = STATIC_ITEMS.find(si => si.item_name.toLowerCase() === dbItem.item_name.toLowerCase());
-             return { ...dbItem, regular_pieces: staticMatch?.regular_pieces || '—', large_pieces: staticMatch?.large_pieces || '—' };
+             return { 
+               ...dbItem, 
+               regular_pieces: dbItem.regular_pieces || staticMatch?.regular_pieces || '—', 
+               large_pieces: dbItem.large_pieces || staticMatch?.large_pieces || '—' 
+             };
           });
           setMenu({ categories: cats, items: mergedItems });
         }
       } catch (err) {
-        console.log("Using static data fallback to preserve layout.");
+        console.error("Database Connection Error. Falling back to static menu.", err);
+        setMenu({ categories: STATIC_CATEGORIES, items: STATIC_ITEMS });
+      } finally {
+        setMenuLoading(false);
       }
     }
-    load();
+    loadDynamicMenu();
   }, []);
 
   const setQty = (id, size, val) => {
@@ -366,10 +380,9 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
           html: emailHtml
         };
 
-        // Aggressive 3-tier Email Fallback to bypass strict browser blocking
+        // Aggressive 3-tier Email Fallback
         let emailSuccess = false;
         
-        // 1. Primary Proxy (CORSProxy)
         try {
           const r1 = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.resend.com/emails'), {
             method: 'POST',
@@ -379,7 +392,6 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
           if(r1.ok) emailSuccess = true;
         } catch(e) {}
 
-        // 2. Secondary Proxy (AllOrigins Raw)
         if (!emailSuccess) {
           try {
             const r2 = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://api.resend.com/emails'), {
@@ -391,7 +403,6 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
           } catch(e) {}
         }
 
-        // 3. Direct Route (In case deployed host automatically unblocks CORS)
         if (!emailSuccess) {
            await fetch('https://api.resend.com/emails', {
               method: 'POST',
@@ -403,7 +414,6 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
         console.error("Email sequence completed with network warnings.", emailErr);
       }
 
-      // Pass the guaranteed object to the success screen
       onSuccess({ order: finalOrderInfo, customer: cust });
     } catch (err) {
       setErrorMsg("System Error: " + err.message);
@@ -418,6 +428,19 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
     window.print();
     document.title = originalTitle;
   };
+
+  if (menuLoading) {
+    return (
+      <div className="page" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+        <p style={{ fontFamily: 'Arial', color: '#666' }}>Fetching live menu from database...</p>
+      </div>
+    );
+  }
+
+  // To maintain exactly the same layout (split across 2 pages), 
+  // we split the loaded dynamic categories.
+  const page1Cats = menu.categories.slice(0, 2);
+  const page2Cats = menu.categories.slice(2);
 
   return (
     <>
@@ -467,7 +490,7 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
           </div>
         </div>
 
-        {menu.categories.slice(0, 2).map(cat => (
+        {page1Cats.map(cat => (
           <div key={cat.id} className="section-wrap">
             <div className="section-title">{cat.name}</div>
             <div className="tbl-size-row">
@@ -491,10 +514,10 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
                     <div className="item-name">{item.item_name}</div>
                     <div className="item-desc">{item.description}</div>
                   </div>
-                  <div className="cell">{item.regular_pieces}</div>
+                  <div className="cell">{item.regular_pieces || '—'}</div>
                   <div className="cell">{fmt(item.regular_price)}</div>
                   <div className="cell"><input type="number" min="0" value={c.reg || ''} onChange={(e) => setQty(item.id, 'reg', e.target.value)} /></div>
-                  <div className="cell">{item.large_pieces}</div>
+                  <div className="cell">{item.large_pieces || '—'}</div>
                   <div className="cell">{fmt(item.large_price)}</div>
                   <div className="cell"><input type="number" min="0" value={c.lrg || ''} onChange={(e) => setQty(item.id, 'lrg', e.target.value)} /></div>
                   <div className="cell cell-total" style={{ background: rTot > 0 ? '#b8dbb8' : '#e4f0e4' }}>{fmt(rTot)}</div>
@@ -503,10 +526,11 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
             })}
           </div>
         ))}
+        <div className="terms">Terms &amp; Conditions: Orders must be placed at least 24 hours before scheduled date of delivery. We require 24 hours notice for any cancellations or fees may apply. Orders must be over $99 to qualify for free delivery, anything under $99 may incur a delivery fee. Our range for free delivery is within a 5km radius of East Perth, anything further will incur a delivery cost OR may not be able to deliver. Gluten free options and substitutes for some platters may attract a higher cost. All prices are subject to change without notice. All credit card payments will attract a 1.5% surcharge fee. <strong>CRAVINGS CAFE</strong> 129 Royal St, East Perth WA 6000 &nbsp;|&nbsp; Trading hours: Mon–Fri 6:00am–2:00pm &nbsp;|&nbsp; Sat 7:00am–1:00pm</div>
       </div>
 
       <div className="page" style={{ marginTop: '0' }}>
-        {menu.categories.slice(2).map(cat => (
+        {page2Cats.map(cat => (
           <div key={cat.id} className="section-wrap">
             <div className="section-title">{cat.name}</div>
             <div className="tbl-size-row">
@@ -530,10 +554,10 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
                     <div className="item-name">{item.item_name}</div>
                     <div className="item-desc">{item.description}</div>
                   </div>
-                  <div className="cell">{item.regular_pieces}</div>
+                  <div className="cell">{item.regular_pieces || '—'}</div>
                   <div className="cell">{fmt(item.regular_price)}</div>
                   <div className="cell"><input type="number" min="0" value={c.reg || ''} onChange={(e) => setQty(item.id, 'reg', e.target.value)} /></div>
-                  <div className="cell">{item.large_pieces}</div>
+                  <div className="cell">{item.large_pieces || '—'}</div>
                   <div className="cell">{fmt(item.large_price)}</div>
                   <div className="cell"><input type="number" min="0" value={c.lrg || ''} onChange={(e) => setQty(item.id, 'lrg', e.target.value)} /></div>
                   <div className="cell cell-total" style={{ background: rTot > 0 ? '#b8dbb8' : '#e4f0e4' }}>{fmt(rTot)}</div>
@@ -579,7 +603,7 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
           </div>
         </div>
 
-        <div className="terms">Terms &amp; Conditions... <strong>CRAVINGS CAFE</strong> 129 Royal St, East Perth WA 6000</div>
+        <div className="terms">Terms &amp; Conditions: Orders must be placed at least 24 hours before scheduled date of delivery. We require 24 hours notice for any cancellations or fees may apply. Orders must be over $99 to qualify for free delivery, anything under $99 may incur a delivery fee. Our range for free delivery is within a 5km radius of East Perth, anything further will incur a delivery cost OR may not be able to deliver. Gluten free options and substitutes for some platters may attract a higher cost. All prices are subject to change without notice. All credit card payments will attract a 1.5% surcharge fee. <strong>CRAVINGS CAFE</strong> 129 Royal St, East Perth WA 6000 &nbsp;|&nbsp; Trading hours: Mon–Fri 6:00am–2:00pm &nbsp;|&nbsp; Sat 7:00am–1:00pm</div>
 
         {errorMsg && <div className="no-print" style={{ color: '#d8000c', backgroundColor: '#ffbaba', padding: '10px', margin: '4mm 0', textAlign: 'center' }}>⚠ {errorMsg}</div>}
 
@@ -592,6 +616,9 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
   );
 }
 
+// ==========================================
+// SUCCESS SCREEN
+// ==========================================
 function SuccessScreen({ order, onNewOrder }) {
   if (!order) return null;
   return (
@@ -618,6 +645,9 @@ function SuccessScreen({ order, onNewOrder }) {
   );
 }
 
+// ==========================================
+// ADMIN PORTAL
+// ==========================================
 function AdminPortal({ onBack }) {
   const [orders, setOrders] = useState([]);
   
