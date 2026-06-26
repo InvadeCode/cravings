@@ -245,7 +245,6 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
           console.log("Database empty or unavailable. Falling back to static data.");
           setMenu({ categories: STATIC_CATEGORIES, items: STATIC_ITEMS });
         } else {
-          // Merge dynamic data with static pieces count (so layout pieces column remains intact)
           const mergedItems = items.map(dbItem => {
              const staticMatch = STATIC_ITEMS.find(si => si.item_name.toLowerCase() === dbItem.item_name.toLowerCase());
              return { 
@@ -324,7 +323,6 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
          await supabaseAdmin.from('order_status_history').insert([{ order_id: ordData.id, new_status: 'new', note: 'Web form' }]);
       }
 
-      // Guarantee the exact totals and ID are passed to the success screen
       const finalOrderInfo = { 
         order_form_id: ordData?.order_number || ordData?.order_form_id || orderFormId, 
         grand_total: totals.grandTotal 
@@ -372,53 +370,40 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
         </div>
       `;
 
-      try {
-        const payload = {
-          from: 'Cravings Cafe <noreply@emails.liaisonit.com>',
-          to: [cust.email, 'complete.anant@gmail.com'],
-          subject: `Catering Order Confirmation - ${finalOrderInfo.order_form_id}`,
-          html: emailHtml
-        };
-
-        // Aggressive 3-tier Email Fallback
-        let emailSuccess = false;
-        
+      // Non-blocking fire-and-forget email trigger to make UI instant
+      setTimeout(async () => {
         try {
-          const r1 = await fetch('https://corsproxy.io/?' + encodeURIComponent('https://api.resend.com/emails'), {
+          const payload = {
+            from: 'Cravings Cafe <noreply@emails.liaisonit.com>',
+            to: [cust.email, 'complete.anant@gmail.com'],
+            subject: `Catering Order Confirmation - ${finalOrderInfo.order_form_id}`,
+            html: emailHtml
+          };
+
+          // 1. Try Vercel Serverless API first (Guaranteed to bypass CORS)
+          const res = await fetch('/api/email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-          if(r1.ok) emailSuccess = true;
-        } catch(e) {}
 
-        if (!emailSuccess) {
-          try {
-            const r2 = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://api.resend.com/emails'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-              body: JSON.stringify(payload)
-            });
-            if(r2.ok) emailSuccess = true;
-          } catch(e) {}
+          // 2. Fallback to direct Resend API (Useful for local testing)
+          if (!res.ok) {
+             await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
+                body: JSON.stringify(payload)
+             });
+          }
+        } catch (emailErr) {
+          console.log("Background email dispatch completed with notes:", emailErr);
         }
-
-        if (!emailSuccess) {
-           await fetch('https://api.resend.com/emails', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${resendApiKey}` },
-              body: JSON.stringify(payload)
-           });
-        }
-      } catch (emailErr) {
-        console.error("Email sequence completed with network warnings.", emailErr);
-      }
+      }, 0);
 
       onSuccess({ order: finalOrderInfo, customer: cust });
     } catch (err) {
       setErrorMsg("System Error: " + err.message);
-    } finally {
-      setSubmitting(false);
+      setSubmitting(false); // Only toggle false if there is an error to avoid flash
     }
   };
 
@@ -437,8 +422,6 @@ function ExactOrderForm({ onSuccess, onAdmin }) {
     );
   }
 
-  // To maintain exactly the same layout (split across 2 pages), 
-  // we split the loaded dynamic categories.
   const page1Cats = menu.categories.slice(0, 2);
   const page2Cats = menu.categories.slice(2);
 
@@ -632,10 +615,7 @@ function SuccessScreen({ order, onNewOrder }) {
       
       <div style={{ background: '#f8faff', border: '1px solid #cce0ff', padding: '25px', borderRadius: '8px', margin: '0 0 30px 0' }}>
         <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px' }}>Order Reference ID</p>
-        <p style={{ margin: '0 0 20px 0', fontSize: '24px', fontWeight: 'bold', color: '#0055aa' }}>{order.order_form_id || order.order_number}</p>
-        
-        <p style={{ margin: '0 0 5px 0', fontSize: '13px', color: '#666', textTransform: 'uppercase', letterSpacing: '1px' }}>Total Processed</p>
-        <p style={{ margin: '0', fontSize: '28px', fontWeight: 'bold', color: '#111' }}>{fmt(order.grand_total)}</p>
+        <p style={{ margin: '0', fontSize: '28px', fontWeight: 'bold', color: '#0055aa' }}>{order.order_form_id || order.order_number}</p>
       </div>
 
       <p style={{ color: '#777', fontSize: '14px', marginBottom: '30px' }}>A confirmation email has been dispatched to your inbox and the Cravings Cafe team.</p>
