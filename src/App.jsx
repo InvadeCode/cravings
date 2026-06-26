@@ -3,10 +3,13 @@ import React, { useState, useEffect, useMemo } from 'react';
 // ==========================================
 // CONFIGURATION & API KEYS
 // ==========================================
-const supabaseUrl = 'https://dyrmqovuhwsazkrzwgul.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5cm1xb3Z1aHdzYXprcnp3Z3VsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIwOTg1MzIsImV4cCI6MjA5NzY3NDUzMn0.CHGQ0oJ8U91OCH5NfHl0Fj0o4zhVepYKmeZBwYTWSV0';
-const supabaseAdminKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR5cm1xb3Z1aHdzYXprcnp3Z3VsIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4MjA5ODUzMiwiZXhwIjoyMDk3Njc0NTMyfQ.B2xObwbZSoy5Sgx2M0lF4Fn5rXP4jqkNANq_jUoEVMU'; 
-const RESEND_API_KEY = 're_Hzx5QcpK_ADQe913LMEAtNkPdbepT4gmT';
+// ==========================================
+// SUPABASE & RESEND CONFIGURATION
+// ==========================================
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseAdminKey = import.meta.env.VITE_SUPABASE_ADMIN_KEY; 
+const resendApiKey = import.meta.env.VITE_RESEND_API_KEY;
 
 let supabase = null;
 let supabaseAdmin = null;
